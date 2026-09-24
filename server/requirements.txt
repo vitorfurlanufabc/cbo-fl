@@ -1,0 +1,2 @@
+flwr==1.15.2
+matplotlib==3.10.8
