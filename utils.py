@@ -561,23 +561,26 @@ def save_dict_to_csv(data_dict, filename):
         writer.writerow(data_dict)
 
 
-def run_training_subprocess(batch_size, epochs, precision, model, return_dict):
+def run_training_subprocess(batch_size, epochs, precision, model, return_dict, partition_id=0, n_clients=1):
     """
     Function to run the training subprocess.
 
-    :param batch_size: Batch size for training
-    :param epochs: Epochs for training
-    :param params: Parameters for the model
-    :param return_dict: Dictionary to store results
+    :param batch_size: Batch size for training.
+    :param epochs: Epochs for training.
+    :param model: PyTorch model to train.
+    :param return_dict: Dictionary to store results.
+    :param partition_id: Index of this client's data partition (0-based).
+    :param n_clients: Total number of federated clients.
     """
     training_results, validation_results = run(
-        model=model, batch_size=batch_size, epochs=epochs, precision=precision
+        model=model, batch_size=batch_size, epochs=epochs, precision=precision,
+        partition_id=partition_id, n_clients=n_clients,
     )
     return_dict["training"] = training_results
     return_dict["validation"] = validation_results
 
 
-def cost_fn(model, trial, training_metrics, validation_metrics):
+def cost_fn(model, trial, training_metrics, validation_metrics, partition_id=0, n_clients=1):
     """
     Evaluate the cost of a trial configuration by running training and computing a weighted penalty.
 
@@ -585,6 +588,8 @@ def cost_fn(model, trial, training_metrics, validation_metrics):
     :param trial: Tuple (log2_batch_size, epochs, log2_precision, task) defining the trial.
     :param training_metrics: List to accumulate training metrics dicts.
     :param validation_metrics: List to accumulate validation metrics dicts.
+    :param partition_id: Index of this client's data partition (0-based).
+    :param n_clients: Total number of federated clients.
     :return: Dictionary with total_penalty and individual penalty components.
     """
     log2_batch_size, epochs, precision_exp, task = trial
@@ -619,7 +624,7 @@ def cost_fn(model, trial, training_metrics, validation_metrics):
     return_dict = manager.dict()
     p = Process(
         target=run_training_subprocess,
-        args=(batch_size, epochs_int, precision, model, return_dict),
+        args=(batch_size, epochs_int, precision, model, return_dict, partition_id, n_clients),
     )
     p.start()
     p.join()
@@ -880,13 +885,18 @@ def run(
     batch_size: int = BATCH_SIZE,
     epochs: int = EPOCHS,
     precision: int = 32,
+    partition_id: int = 0,
+    n_clients: int = 1,
 ):
     """
     Function to run the training of the CNN model.
 
-    :param params: Model Parameters
-    :param batch_size: Batch size for training
-    :param epochs: Epochs for training
+    :param model: PyTorch model to train.
+    :param batch_size: Batch size for training.
+    :param epochs: Number of training epochs.
+    :param precision: Numeric precision (8, 16, or 32 bits).
+    :param partition_id: Index of this client's data partition (0-based).
+    :param n_clients: Total number of federated clients used for IID partitioning.
     """
     data = fetch_california_housing()
     X, y = data.data, data.target.reshape(-1, 1)  # y is now continuous
@@ -897,7 +907,17 @@ def run(
     y_scaler = StandardScaler()
     y = y_scaler.fit_transform(y)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    # IID partitioning: shuffle the full dataset and assign each client an equal slice
+    n_samples = len(X)
+    indices = np.random.permutation(n_samples)
+    partition_size = n_samples // n_clients
+    start = partition_id * partition_size
+    end = start + partition_size if partition_id < n_clients - 1 else n_samples
+    partition_indices = indices[start:end]
+    X_partition = X[partition_indices]
+    y_partition = y[partition_indices]
+
+    X_train, X_test, y_train, y_test = train_test_split(X_partition, y_partition, test_size=0.2)
 
     train_ds = TensorDataset(
         torch.tensor(X_train, dtype=torch.float32),

@@ -1,0 +1,128 @@
+services:
+
+  # ── Servidor Flower ────────────────────────────────────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: vf54_fl_server
+    hostname: vf54_fl_server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./server/figure:/app/figure
+    # O servidor apenas agrega parâmetros; recebe limites generosos
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"      # 1 vCPU dedicado
+          memory: "256M"   # 256 MB RAM
+        reservations:
+          cpus: "0.25"
+          memory: "64M"
+    networks:
+      - fl_network
+    restart: on-failure
+
+  # ── Cliente 0 ──────────────────────────────────────────────────────────────
+  client_0:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: vf54_fl_client_0
+    command: ["--partition-id", "0"]
+    depends_on:
+      - server
+    volumes:
+      - ./client/figure:/app/figure
+      - ./client/data:/app/data
+    # PROC_MAX = 35 % → ~0.35 vCPU  |  MEM_MAX = 60 MB → hard-limit 128 MB
+    deploy:
+      resources:
+        limits:
+          cpus: "0.35"
+          memory: "128M"
+        reservations:
+          cpus: "0.10"
+          memory: "64M"
+    networks:
+      - fl_network
+    restart: on-failure
+
+  # ── Cliente 1 ──────────────────────────────────────────────────────────────
+  client_1:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: vf54_fl_client_1
+    command: ["--partition-id", "1"]
+    depends_on:
+      - server
+    volumes:
+      - ./client/figure:/app/figure
+      - ./client/data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.35"
+          memory: "128M"
+        reservations:
+          cpus: "0.10"
+          memory: "64M"
+    networks:
+      - fl_network
+    restart: on-failure
+
+  # ── Cliente 2 ──────────────────────────────────────────────────────────────
+  client_2:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: vf54_fl_client_2
+    command: ["--partition-id", "2"]
+    depends_on:
+      - server
+    volumes:
+      - ./client/figure:/app/figure
+      - ./client/data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.35"
+          memory: "128M"
+        reservations:
+          cpus: "0.10"
+          memory: "64M"
+    networks:
+      - fl_network
+    restart: on-failure
+
+  # ── Cliente 3 ──────────────────────────────────────────────────────────────
+  client_3:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: vf54_fl_client_3
+    command: ["--partition-id", "3"]
+    depends_on:
+      - server
+    volumes:
+      - ./client/figure:/app/figure
+      - ./client/data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.35"
+          memory: "128M"
+        reservations:
+          cpus: "0.10"
+          memory: "64M"
+    networks:
+      - fl_network
+    restart: on-failure
+
+networks:
+  fl_network:
+    driver: bridge
+    name: fl_network
+

@@ -5,6 +5,8 @@ from collections import OrderedDict
 from utils import *
 import torch.multiprocessing as mp
 
+N_CLIENTS = 4
+
 
 class FederatedClient(fl.client.NumPyClient):
     """Federated learning client using CBO to tune local training hyperparameters."""
@@ -139,6 +141,8 @@ class FederatedClient(fl.client.NumPyClient):
                 self.X_train[0],
                 self.training_metrics,
                 self.validation_metrics,
+                partition_id=self.partition_id,
+                n_clients=N_CLIENTS,
             )
             self.y_train = {k: [v] for k, v in penalties.items()}
 
@@ -155,6 +159,8 @@ class FederatedClient(fl.client.NumPyClient):
                 self.current_x,
                 training_metrics=self.training_metrics,
                 validation_metrics=self.validation_metrics,
+                partition_id=self.partition_id,
+                n_clients=N_CLIENTS,
             )
             self.X_train.append(self.current_x)
             for k, v in penalties.items():
